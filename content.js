@@ -8,18 +8,9 @@
     let useNative = false;
     let customCursorApplied = false;
 
-    function findAnchor(el) {
-        while (el && el !== document.documentElement) {
-            if (el.tagName === 'A' && el.href) return el.href;
-            el = el.parentElement;
-        }
-        return null;
-    }
-
     function getTargetUrl(target) {
-        const link = findAnchor(target);
-        if (link) return link;
-        return null;
+        const anchor = target?.closest?.('a');
+        return (anchor && anchor.href) ? anchor.href : null;
     }
 
     function isCursorInSelection(target) {
@@ -35,6 +26,22 @@
             }
         }
         return false;
+    }
+
+    function getValidUrl(text) {
+        let target = text.trim();
+        if (!target) return null;
+
+        if (!/^[a-z]+:\/\//i.test(target) && /^([a-z0-9-]+\.)+[a-z0-9]+/i.test(target)) {
+            target = 'https://' + target;
+        }
+
+        try {
+            const url = new URL(target);
+            return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : null;
+        } catch (e) {
+            return null;
+        }
     }
 
     const linkSvg = `
@@ -93,6 +100,13 @@
         if (!candidateUrl && (!candidateText || !isCursorInSelection(e))) return;
         useNative = e.altKey;
         if (useNative) return;
+        if (candidateText) {
+            const verifiedUrl = getValidUrl(candidateText);
+            if (verifiedUrl) {
+                candidateUrl = verifiedUrl;
+                candidateText = null;
+            }
+        }
         startX = e.clientX;
         startY = e.clientY;
         dragging = false;
