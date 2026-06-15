@@ -29,16 +29,54 @@
     }
 
     function getValidUrl(text) {
-        let target = text.trim();
-        if (!target) return null;
+        const target = text.trim();
+        if (!target || /\s/.test(target)) return null;
 
-        if (!/^[a-z]+:\/\//i.test(target) && /^([a-z0-9-]+\.)+[a-z0-9]+/i.test(target)) {
-            target = 'https://' + target;
+        const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
+        const FILE_TLDS = new Set([
+            'css', 'csv', 'doc', 'docx', 'exe', 'gif', 'htm', 'html', 'jpeg', 'jpg',
+            'js', 'json', 'md', 'pdf', 'png', 'rar', 'ts', 'txt', 'xml', 'zip'
+        ]);
+        const HOSTNAME = '(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}';
+        const SUFFIX = '(?::\\d{1,5})?(?:\\/[^\\s#?]*)?(?:\\?[^\\s#]*)?(?:#[^\\s]*)?';
+        const IPV4 = '(?:(?:25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)';
+
+        let toParse = null;
+        if (/^https?:\/\//i.test(target)) {
+            toParse = target;
+        } else if (new RegExp(`^${HOSTNAME}${SUFFIX}$`, 'i').test(target)) {
+            toParse = 'https://' + target;
+        } else if (new RegExp(`^${IPV4}${SUFFIX}$`).test(target)) {
+            toParse = 'https://' + target;
+        } else if (new RegExp(`^localhost${SUFFIX}$`, 'i').test(target)) {
+            toParse = 'https://' + target;
+        } else {
+            return null;
         }
 
         try {
-            const url = new URL(target);
-            return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : null;
+            const url = new URL(toParse);
+            if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+
+            const host = url.hostname;
+            if (!host) return null;
+
+            if (host === 'localhost') return url.href;
+
+            if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host)) {
+                return host.split('.').every((octet) => {
+                    const n = Number(octet);
+                    return n >= 0 && n <= 255;
+                }) ? url.href : null;
+            }
+
+            const labels = host.split('.');
+            const tld = labels[labels.length - 1];
+            if (!/^[a-z]{2,63}$/i.test(tld)) return null;
+            if (labels.length === 2 && FILE_TLDS.has(tld.toLowerCase())) return null;
+            if (!labels.every((label) => LABEL.test(label))) return null;
+
+            return url.href;
         } catch (e) {
             return null;
         }
@@ -100,7 +138,9 @@
         if (!candidateUrl && (!candidateText || !isCursorInSelection(e))) return;
         useNative = e.altKey;
         if (useNative) return;
-        if (candidateText) {
+        if (candidateUrl) {
+            candidateText = null;
+        } else if (candidateText) {
             const verifiedUrl = getValidUrl(candidateText);
             if (verifiedUrl) {
                 candidateUrl = verifiedUrl;
