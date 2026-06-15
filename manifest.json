@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Super Drag & Drop",
-    "version": "1.3",
+    "version": "1.4",
     "description": "Restore the removed Edge Super Drag & Drop feature. Drag links to open in a new tab, Esc cancels, Alt restores default behavior.",
     "icons": {
         "16": "icons/icon16.png",
